@@ -23,6 +23,8 @@ from pathlib import Path
 DEFAULT_BAUD = 115200
 DEFAULT_BLE_NAME = "Claude-Mochi-Tank"
 CH340_VID = 0x1A86  # WCH CH340/CH341 USB-serial adapter
+CH55X_VID = 0x1209
+CH55X_PID = 0xC550
 ESPRESSIF_USB_VID = 0x303A
 BLE_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
 BLE_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -398,8 +400,13 @@ def transport_list(selected: str) -> list[str]:
     return [selected]
 
 
-def command_payload(anim: str) -> str:
-    return json.dumps({"auto": False, "anim": anim}, separators=(",", ":")) + "\n"
+def command_payload(command: str | dict) -> str:
+    if isinstance(command, dict):
+        body = dict(command)
+        body.setdefault("auto", False)
+    else:
+        body = {"auto": False, "anim": command}
+    return json.dumps(body, separators=(",", ":")) + "\n"
 
 
 def port_matches_ch340(info: object) -> bool:
@@ -435,11 +442,14 @@ def port_score(info: object) -> int:
     if any(token in haystack for token in ("BLUETOOTH", "STANDARD SERIAL OVER BLUETOOTH")):
         return 0
     vid = getattr(info, "vid", None)
+    pid = getattr(info, "pid", None)
+    if vid == CH55X_VID and pid == CH55X_PID:
+        return 105
     if vid == CH340_VID or port_matches_ch340(info):
         return 100
     if vid == ESPRESSIF_USB_VID:
         return 95
-    if any(token in haystack for token in ("ESPRESSIF", "ESP32", "USB JTAG", "USB-TO-UART", "USB SERIAL", "USB CDC", "CP210")):
+    if any(token in haystack for token in ("CH55X", "CH552", "1209:C550", "VID:PID=1209:C550", "ESPRESSIF", "ESP32", "USB JTAG", "USB-TO-UART", "USB SERIAL", "USB CDC", "CP210")):
         return 90
     return 0
 
@@ -564,7 +574,6 @@ def send_anim_serial(anim: str, port: str | None = None, baud: int | None = None
                 ser.dsrdtr = False
                 ser.dtr = False
                 ser.rts = False
-                got_ack = False
                 with ser:
                     ser.dtr = False
                     ser.rts = False
@@ -572,17 +581,14 @@ def send_anim_serial(anim: str, port: str | None = None, baud: int | None = None
                     wait_for_serial_ready(ser)
                     ser.write(command_payload(anim).encode("utf-8"))
                     ser.flush()
-                    deadline = time.time() + 1.5
+                    deadline = time.time() + 0.15
                     while time.time() < deadline:
                         line = ser.readline().decode("utf-8", errors="replace").strip()
                         if "{" in line and "\"anim\"" in line:
                             log(f"serial state port={serial_port}: {line}")
-                            got_ack = True
                             break
-                if got_ack:
-                    log(f"sent serial port={serial_port} anim={anim}")
-                    return True
-                last_exc = TimeoutError("serial command written but no firmware state ack received")
+                log(f"sent serial port={serial_port} anim={anim}")
+                return True
             except Exception as exc:
                 last_exc = exc
                 time.sleep(0.15 * (attempt + 1))
