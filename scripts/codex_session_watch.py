@@ -3,8 +3,8 @@
 
 Codex CLI hooks use ~/.codex/hooks.json. Some VS Code-originated Codex sessions
 record tool activity in session JSONL without invoking those hooks. This watcher
-tails the same local session log and reuses codex_clawd_hook.py's mapping and
-transport code as a fallback live bridge.
+tails the same local session log and reuses the colocated Clawd hook bridge's
+mapping and transport code as a fallback live bridge.
 """
 
 from __future__ import annotations
@@ -17,7 +17,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-import codex_clawd_hook as hook
+try:
+    import codex_clawd_hook as hook
+except ImportError:
+    import claude_clawd_hook as hook
 
 
 CODEX_HOME = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
@@ -124,6 +127,8 @@ def send_watched_anim(anim: str, reason: str, args: argparse.Namespace) -> None:
 def follow_file(path: Path, args: argparse.Namespace) -> None:
     session_args = argparse.Namespace(**vars(args))
     session_args.client_id = session_client_id(path, args.client_id)
+    session_args.source = "codex"
+    session_args.client_kind = "codex"
     hook.log(f"watch following session={path} client_id={session_args.client_id}")
     with path.open("r", encoding="utf-8", errors="replace") as fh:
         if not args.replay:
