@@ -45,11 +45,11 @@ STATUS_LABELS = {
 }
 
 DEFAULT_STATUS_EFFECTS: dict[str, dict[str, Any]] = {
-    "idle": {"leds": "001"},
+    "idle": {"leds": "100"},
     "working": {"effect": {"pattern": "chase", "mask": "111", "period": 220}},
     "waiting": {"effect": {"pattern": "blink", "mask": "010", "period": 420}},
-    "complete": {"leds": "001"},
-    "error": {"effect": {"pattern": "blink", "mask": "100", "period": 220}},
+    "complete": {"leds": "100"},
+    "error": {"effect": {"pattern": "blink", "mask": "001", "period": 220}},
     "waiting_connection": {"effect": {"pattern": "chase", "mask": "010", "period": 180}},
     "sleeping": {"leds": "000"},
 }
@@ -1073,20 +1073,20 @@ const statusOrder=[
   ["idle","空闲"],["working","工作中"],["waiting","等待确认"],["complete","完成"],["error","错误"],["waiting_connection","等待连接"],["sleeping","休眠"]
 ];
 const effectOptions=[
-  {id:"red",label:"红灯常亮",command:{leds:"100"}},
+  {id:"red",label:"红灯常亮",command:{leds:"001"}},
   {id:"yellow",label:"黄灯常亮",command:{leds:"010"}},
-  {id:"green",label:"绿灯常亮",command:{leds:"001"}},
+  {id:"green",label:"绿灯常亮",command:{leds:"100"}},
   {id:"off",label:"全灭",command:{leds:"000"}},
   {id:"all",label:"全亮",command:{leds:"111"}},
-  {id:"red_blink",label:"红灯闪烁",command:{effect:{pattern:"blink",mask:"100",period:220}}},
+  {id:"red_blink",label:"红灯闪烁",command:{effect:{pattern:"blink",mask:"001",period:220}}},
   {id:"yellow_blink",label:"黄灯闪烁",command:{effect:{pattern:"blink",mask:"010",period:420}}},
-  {id:"green_blink",label:"绿灯闪烁",command:{effect:{pattern:"blink",mask:"001",period:300}}},
+  {id:"green_blink",label:"绿灯闪烁",command:{effect:{pattern:"blink",mask:"100",period:300}}},
   {id:"all_chase",label:"全灯轮巡",command:{effect:{pattern:"chase",mask:"111",period:220}}},
   {id:"yellow_chase",label:"黄灯等待轮巡",command:{effect:{pattern:"chase",mask:"010",period:180}}},
   {id:"pair_chase",label:"双灯轮巡",command:{effect:{pattern:"pair_chase",mask:"111",period:260}}}
 ];
 const presets=[
-  ["红灯","100"],["黄灯","010"],["绿灯","001"],["全灭","000"],["全亮","111"]
+  ["红灯","001"],["黄灯","010"],["绿灯","100"],["全灭","000"],["全亮","111"]
 ];
 buttons.innerHTML=presets.map(([name,mask])=>`<button class="chip" data-mask="${mask}" onclick="sendPreset('${mask}')">${name}</button>`).join("")+
   `<button class="chip" onclick="sendPattern('blink')">闪烁</button><button class="chip" onclick="sendPattern('chase')">轮巡</button>`;
@@ -1160,7 +1160,7 @@ function renderEffectControls(){
     [["steady","常亮"],["blink","闪烁"],["chase","轮巡"],["alternate","交替"],["pair_chase","双灯轮巡"]].map(([p,label])=>`<button class="btn" onclick="sendPattern('${p}')">${label}</button>`).join("")+
     `</div></div>`+
     `<div><div class="sub">周期 ms</div><input id="periodField" class="field" value="${customPeriod}" onchange="customPeriod=Math.max(20,Math.min(10000,parseInt(this.value||250)||250)); renderSignal();"></div>`+
-    `<div style="grid-column:1/-1"><div class="sub">自定义步骤 JSON</div><input id="stepsField" class="field" value='[{"mask":"100","ms":120},{"mask":"010","ms":120},{"mask":"001","ms":120},{"mask":"000","ms":80}]'><button class="btn" onclick="sendSteps()">发送步骤</button></div>`;
+    `<div style="grid-column:1/-1"><div class="sub">自定义步骤 JSON</div><input id="stepsField" class="field" value='[{"mask":"001","ms":120},{"mask":"010","ms":120},{"mask":"100","ms":120},{"mask":"000","ms":80}]'><button class="btn" onclick="sendSteps()">发送步骤</button></div>`;
 }
 function toggleLed(i){ledMask=ledMask.split("").map((v,n)=>n===i?(v==="1"?"0":"1"):v).join(""); renderEffectControls(); renderSignal();}
 async function sendMask(){previewMode={type:"manual"}; renderSignal(); await post('/send',{leds:ledMask}); refresh();}
@@ -1180,7 +1180,7 @@ function none(t){return `<tr><td class="empty" colspan="9">${t}</td></tr>`}
 function q(s){return JSON.stringify(s||"")}
 function selected(a,b){return (a||"")===(b||"")}
 function modeLabel(mode){return mode==="ble"?"仅 BLE":mode==="serial"?"仅串口":"自动：BLE -> 串口"}
-function maskName(mask){return mask==="100"?"红灯":mask==="010"?"黄灯":mask==="001"?"绿灯":mask==="000"?"全灭":mask==="111"?"全亮":mask}
+function maskName(mask){return mask==="001"?"红灯":mask==="010"?"黄灯":mask==="100"?"绿灯":mask==="000"?"全灭":mask==="111"?"全亮":mask}
 function bit(mask,i){return mask[i]==="1"}
 function activePreviewMask(){
   if(!backlightOn)return "000";
@@ -1203,7 +1203,7 @@ function activePreviewMask(){
 }
 function renderSignal(){
   const mask=activePreviewMask();
-  signalPreview.innerHTML=`<div class="signal-wrap"><div class="signal"><div class="lamp green ${bit(mask,2)?"on":""}"></div><div class="lamp yellow ${bit(mask,1)?"on":""}"></div><div class="lamp red ${bit(mask,0)?"on":""}"></div></div><div class="signal-status"><b>${maskName(mask)}</b><div class="metas">`+meta("当前灯位",mask)+meta("选择灯位",ledMask)+meta("周期",customPeriod+" ms")+meta("电源",backlightOn?"开启":"关闭")+`</div></div></div>`;
+  signalPreview.innerHTML=`<div class="signal-wrap"><div class="signal"><div class="lamp green ${bit(mask,0)?"on":""}"></div><div class="lamp yellow ${bit(mask,1)?"on":""}"></div><div class="lamp red ${bit(mask,2)?"on":""}"></div></div><div class="signal-status"><b>${maskName(mask)}</b><div class="metas">`+meta("当前灯位",mask)+meta("选择灯位",ledMask)+meta("周期",customPeriod+" ms")+meta("电源",backlightOn?"开启":"关闭")+`</div></div></div>`;
 }
 function compactDetail(v){return (v&&v.detail?v.detail:"").replace(/"/g,"")}
 function renderStatusBar(s){
